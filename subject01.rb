@@ -6,6 +6,7 @@ class Plate
         @depth = 0.0
         @specific_gravity = 0.0
         @specific_heat = 0.0
+        @temperature = 0.0
     end
 
     def set_width(width)
@@ -28,12 +29,20 @@ class Plate
         @specific_heat = spec_h
     end
 
+    def set_temperature(temp)
+        @temperature = temp
+    end
+
     def get_specific_gravity()
         return @specific_gravity
     end
 
     def get_specific_heat()
         return @specific_heat
+    end
+
+    def get_temperature()
+        return @temperature
     end
 
     def get_area()
@@ -49,7 +58,7 @@ class Plate
     end
 
     def get_heat_capacity()
-        return get_volume() * @specific_heat
+        return get_volume() * 100 ** 3 * get_specific_gravity() * get_specific_heat()
     end
 end
 
@@ -74,6 +83,14 @@ class Thermal
         }
     end
 
+    def get_sum()
+        sum = 0.0
+        @heat_quantities.each{|key, value|
+            sum += value
+        }
+        return sum
+    end
+
     # Calc quantity of heat.
     # This function uses keyword arguments.
     # @param [Float] coeff Coefficient for quantity of heat.
@@ -90,6 +107,8 @@ class Thermal
             surface_area, shape_factor:shape_factor, form_theta:form_theta)
     end
 
+    private
+
     # Calc quantity of heat.
     # This function uses keyword arguments.
     # @param [Float] coeff Coefficient for quantity of heat.
@@ -98,17 +117,8 @@ class Thermal
     # @param [Float] theta Angle of object.
     # @param [Float] shape_factor Shape factor
     # @return [Float] Quantity of heat
-    private
     def calc_heat_quantity(coeff, energy, surface_area, shape_factor:1.0, form_theta:0.0)
         return coeff * energy * shape_factor * surface_area * Math.cos(form_theta)
-    end
-
-    def get_sum()
-        sum = 0.0
-        @heat_quantities.each{|key, value|
-            sum += value
-        }
-        return sum
     end
 end
 
@@ -123,16 +133,17 @@ if __FILE__ == $0
     plate_param = [
         {},
         {"width" => 0.1, "height" => 0.1, "depth" => 0.02,
-            "specific_gravity" => 2.7, "specific_heat" => 0.88},
+            "specific_gravity" => 2.7, "specific_heat" => 0.88, "temperature" => 0.0},
         {"width" => 0.1, "height" => 0.1, "depth" => 0.02,
-            "specific_gravity" => 2.7, "specific_heat" => 0.88},
+            "specific_gravity" => 2.7, "specific_heat" => 0.88, "temperature" => 0.0},
     ]
     graph = {
         "1" => ["2"],
+        "2" => ["1"],
     }
-    heat_transfer_coeffs = Array.new(2).map{ Array.new(2) }
-    heat_transfer_coeffs[0][1] = 200 * plate_param[1]["height"] * plate_param[1]["depth"]
-    heat_transfer_coeffs[1][0] = 200 * plate_param[1]["height"] * plate_param[1]["depth"]
+    heat_transfer_coeffs = Array.new(3).map{ Array.new(3) }
+    heat_transfer_coeffs[1][2] = 200 * plate_param[1]["height"] * plate_param[1]["depth"]
+    heat_transfer_coeffs[2][1] = 200 * plate_param[1]["height"] * plate_param[1]["depth"]
 
     for quantity in necessary_quantities do
         thermal.set_quantity(
@@ -153,19 +164,39 @@ if __FILE__ == $0
         plate.set_depth(plate_param[i]["depth"])
         plate.set_specific_gravity(plate_param[i]["specific_gravity"])
         plate.set_specific_heat(plate_param[i]["specific_heat"])
+        plate.set_temperature(plate_param[i]["temperature"])
         plates[i] = plate
-        heat_capacities[i] = plate.get_volume() * 100 ** 3 * plate.get_specific_gravity() * plate.get_specific_heat()
+        heat_capacities[i] = plate.get_heat_capacity()
     end
 
-    # sum = [thermal.get_sum(), 0.0]
-    # graph.each{|key, value|
-    #     delta_t = 1.0
-    #     for i in 1..4 do # 4th order Runge-Kutta method
-    #         slopes = Array.new(0)
-    #         for i in [key] + value do
-    #             val = sum[i]
-    #             val /= mc[i]
-    #         end
-    #     end
-    # }
+    # sum is tentative
+    sum = Array.new(0)
+    sum[1] = thermal.get_sum()
+    sum[2] = 0
+    delta_t = 1.0
+    slopes = Array.new(5).map{ Array.new(3) }
+    slopes[0][1] = 0.0
+    slopes[0][2] = 0.0
+    for num in 1..10 do
+        for i in 1..4 do # 4th order Runge-Kutta method
+            graph.each{|key, value|
+                slopes[i][key.to_i] = 0.0
+                for j in value do
+                    slopes[i][key.to_i] -= heat_transfer_coeffs[key.to_i][j.to_i] *
+                        ((plates[key.to_i].get_temperature() + slopes[i - 1][1]/2)
+                         - (plates[j.to_i].get_temperature() + slopes[i - 1][2]/2))
+                end
+                slopes[i][key.to_i] += sum[key.to_i]
+                slopes[i][key.to_i] /= heat_capacities[key.to_i]
+            }
+        end
+
+        puts("Temprature[%d]" % num)
+        for i in 1..2 do
+            plates[i].set_temperature(plates[i].get_temperature() +
+                (slopes[1][i] + 2 * slopes[2][i] + 2 * slopes[3][i] + 3 * slopes[4][i]))
+            puts("plate%d : %f" % [i, plates[i].get_temperature()])
+        end
+    end
+
 end
