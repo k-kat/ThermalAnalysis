@@ -1,126 +1,6 @@
 #!/usr/bin/env ruby
-class Plate
-    def initialize()
-        @width = 0.0
-        @height = 0.0
-        @depth = 0.0
-        @specific_gravity = 0.0
-        @specific_heat = 0.0
-        @temperature = 0.0
-    end
-
-    def set_width(width)
-        @width = width
-    end
-
-    def set_height(height)
-        @height = height
-    end
-
-    def set_depth(depth)
-        @depth = depth
-    end
-
-    def set_specific_gravity(spec_g)
-        @specific_gravity = spec_g
-    end
-
-    def set_specific_heat(spec_h)
-        @specific_heat = spec_h
-    end
-
-    def set_temperature(temp)
-        @temperature = temp
-    end
-
-    def get_specific_gravity()
-        return @specific_gravity
-    end
-
-    def get_specific_heat()
-        return @specific_heat
-    end
-
-    def get_temperature()
-        return @temperature
-    end
-
-    def get_area()
-        return @width * @height
-    end
-
-    def get_volume()
-        return get_area() * @depth
-    end
-
-    def get_weight()
-        return  get_volume() * @specific_gravity
-    end
-
-    def get_heat_capacity()
-        return get_volume() * 100 ** 3 * get_specific_gravity() * get_specific_heat()
-    end
-end
-
-class Thermal
-    HEAT_QUANTITY_SUN = "sun"
-    HEAT_QUANTITY_EARTH = "earth"
-    HEAT_QUANTITY_ALBEDO = "albedo"
-    HEAT_QUANTITY_HOUSE = "house"
-
-    def initialize()
-        @heat_quantities = {
-            HEAT_QUANTITY_SUN => 0.0,
-            HEAT_QUANTITY_EARTH => 0.0,
-            HEAT_QUANTITY_ALBEDO => 0.0,
-            HEAT_QUANTITY_HOUSE => 0.0,
-        }
-    end
-
-    def print_quantities()
-        @heat_quantities.each{|key, value|
-            puts "%s => %f" % [key, value]
-        }
-    end
-
-    def get_sum()
-        sum = 0.0
-        @heat_quantities.each{|key, value|
-            sum += value
-        }
-        return sum
-    end
-
-    # Calc quantity of heat.
-    # This function uses keyword arguments.
-    # @param [Float] coeff Coefficient for quantity of heat.
-    # @param [Float] energy Radiant energy
-    # @param [Float] surface_are Surface Area
-    # @param [Float] theta Angle of object.
-    # @param [Float] shape_factor Shape factor
-    # @param [String] One of HEAT_QUANTITY.
-    def set_quantity(coeff, energy, surface_area, shape_factor:1.0, form_theta:0.0, tag:"")
-        if tag == ""
-            raise ArgumentError.new()
-        end
-        @heat_quantities[tag] = calc_heat_quantity(coeff, energy,
-            surface_area, shape_factor:shape_factor, form_theta:form_theta)
-    end
-
-    private
-
-    # Calc quantity of heat.
-    # This function uses keyword arguments.
-    # @param [Float] coeff Coefficient for quantity of heat.
-    # @param [Float] energy Radiant energy
-    # @param [Float] surface_are Surface Area
-    # @param [Float] theta Angle of object.
-    # @param [Float] shape_factor Shape factor
-    # @return [Float] Quantity of heat
-    def calc_heat_quantity(coeff, energy, surface_area, shape_factor:1.0, form_theta:0.0)
-        return coeff * energy * shape_factor * surface_area * Math.cos(form_theta)
-    end
-end
+require "./Plate.rb"
+require "./Thermal.rb"
 
 if __FILE__ == $0
     thermal = Thermal.new()
@@ -129,7 +9,7 @@ if __FILE__ == $0
     ]
     quantity_param = {
         Thermal::HEAT_QUANTITY_SUN => {
-            "coeff" => 0.30, "energy" => 1350, "surface_area" => 0.1**2, "form_theta" => 0}}
+            "coeff" => 0.30, "energy" => 1350, "surface_area" => 0.166*2, "form_theta" => 0}}
     plate_param = [
         {},
         {"width" => 0.1, "height" => 0.1, "depth" => 0.02,
@@ -173,7 +53,6 @@ if __FILE__ == $0
     sum = Array.new(0)
     sum[1] = thermal.get_sum()
     sum[2] = 0
-    delta_t = 1.0
     slopes = Array.new(5).map{ Array.new(3) }
     slopes[0][1] = 0.0
     slopes[0][2] = 0.0
